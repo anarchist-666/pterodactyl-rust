@@ -23,19 +23,19 @@ if (startupCmd.length < 1) {
 const seenPercentage = {};
 
 function filter(data) {
-    const str = data.toString();
-    if(str.startsWith("Fallback handler could not load library")) return; // Remove fallback
-    if(str.includes("Filename:")) return; //Remove bindings.h
-	if(str.includes("ERROR: Shader ")) return; //Remove shader errors
-	if(str.includes("WARNING: Shader ")) return; //Remove shader errors
-    if (str.startsWith("Loading Prefab Bundle ")) { // Rust seems to spam the same percentage, so filter out any duplicates.
-        const percentage = str.substr("Loading Prefab Bundle ".length);
-        if (seenPercentage[percentage]) return;
+	const str = data.toString();
+	if (str.startsWith("Fallback handler could not load library")) return; // Remove fallback
+	if (str.includes("Filename:")) return; //Remove bindings.h
+	if (str.includes("ERROR: Shader ")) return; //Remove shader errors
+	if (str.includes("WARNING: Shader ")) return; //Remove shader errors
+	if (str.startsWith("Loading Prefab Bundle ")) { // Rust seems to spam the same percentage, so filter out any duplicates.
+		const percentage = str.substr("Loading Prefab Bundle ".length);
+		if (seenPercentage[percentage]) return;
 
-        seenPercentage[percentage] = true;
-    }
+		seenPercentage[percentage] = true;
+	}
 
-    console.log(str);
+	console.log(str);
 }
 
 const { spawn } = require("child_process");
@@ -50,9 +50,9 @@ process.env.DOTNET_SYSTEM_NET_DISABLEIPV6 = process.env.DOTNET_SYSTEM_NET_DISABL
 const _monoLoggingRaw = (process.env.MONO_LOGGING || '').toLowerCase();
 const _monoLogging = _monoLoggingRaw === '1' || _monoLoggingRaw === 'true' || _monoLoggingRaw === 'yes' || _monoLoggingRaw === 'on';
 if (_monoLogging) {
-    process.env.MONO_LOG_LEVEL = process.env.MONO_LOG_LEVEL || 'debug';
-    process.env.MONO_LOG_MASK = process.env.MONO_LOG_MASK || 'all';
-    process.env.MONO_LOG_DEST = process.env.MONO_LOG_DEST || 'file:/home/container/mono-debug.log';
+	process.env.MONO_LOG_LEVEL = process.env.MONO_LOG_LEVEL || 'debug';
+	process.env.MONO_LOG_MASK = process.env.MONO_LOG_MASK || 'all';
+	process.env.MONO_LOG_DEST = process.env.MONO_LOG_DEST || 'file:/home/container/mono-debug.log';
 }
 
 // Optional: prevent stdio fds (0/1/2) from being closed via LD_PRELOAD shim
@@ -60,10 +60,10 @@ if (_monoLogging) {
 const _preventFdRaw = (process.env.PREVENT_FD || '').toLowerCase();
 const _preventFd = _preventFdRaw === '1' || _preventFdRaw === 'true' || _preventFdRaw === 'yes' || _preventFdRaw === 'on';
 if (_preventFd) {
-    const preloadPath = '/usr/local/lib/libkeepstdio.so';
-    process.env.LD_PRELOAD = process.env.LD_PRELOAD
-        ? `${preloadPath}:${process.env.LD_PRELOAD}`
-        : preloadPath;
+	const preloadPath = '/usr/local/lib/libkeepstdio.so';
+	process.env.LD_PRELOAD = process.env.LD_PRELOAD
+		? `${preloadPath}:${process.env.LD_PRELOAD}`
+		: preloadPath;
 }
 
 // Prefer keeping stdin (fd 0) open to avoid Mono fd reuse
@@ -78,26 +78,26 @@ let usePty = _monoLogging; // tie PTY usage to MONO_LOGGING as requested
 if (_preventFd) usePty = false;
 const spawnCmd = usePty ? 'script' : 'bash';
 const spawnArgs = usePty
-    ? ['-qfec', startupCmd, '/dev/null']
-    : ['-lc', startupCmd];
+	? ['-qfec', startupCmd, '/dev/null']
+	: ['-lc', startupCmd];
 
 const gameProcess = spawn(spawnCmd, spawnArgs, {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: process.env
+	stdio: ['ignore', 'pipe', 'pipe'],
+	env: process.env
 });
 // If MONO_LOGGING is enabled, tee raw stdout/stderr to mono-debug.log as a fallback
 let monoLogStream = null;
 if (_monoLogging) {
-    try {
-        monoLogStream = fs.createWriteStream('/home/container/mono-debug.log', { flags: 'a' });
-    } catch (e) {
-        console.log('Failed to open mono-debug.log for writing: ' + (e?.message || e));
-    }
+	try {
+		monoLogStream = fs.createWriteStream('/home/container/mono-debug.log', { flags: 'a' });
+	} catch (e) {
+		console.log('Failed to open mono-debug.log for writing: ' + (e?.message || e));
+	}
 }
 
 // Tee raw output to mono-debug.log (always, even after RCON connects)
 function teeToMonoLog(data) {
-    if (monoLogStream) monoLogStream.write(data);
+	if (monoLogStream) monoLogStream.write(data);
 }
 gameProcess.stdout.on('data', teeToMonoLog);
 gameProcess.stderr.on('data', teeToMonoLog);
@@ -113,9 +113,9 @@ gameProcess.on('exit', function (code, signal) {
 		console.log("Main game process exited with code " + code);
 		// process.exit(code);
 	}
-    if (monoLogStream) {
-        try { monoLogStream.end(); } catch {}
-    }
+	if (monoLogStream) {
+		try { monoLogStream.end(); } catch { }
+	}
 });
 
 function initialListener(data) {
@@ -165,7 +165,15 @@ var poll = function () {
 		gameProcess.stdout.removeListener('data', filter);
 		gameProcess.stderr.removeListener('data', filter);
 		process.stdin.on('data', function (text) {
-			ws.send(createPacket(text));
+			const command = text.toString().trim();
+
+			if (!command) return;
+
+			console.log(`> ${command}`);
+
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.send(createPacket(command));
+			}
 		});
 	});
 
